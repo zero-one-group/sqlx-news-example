@@ -12,15 +12,21 @@ source .env
 sqlx database create
 
 # Create and run migrations
-sqlx migrate add add_article_table
+sqlx migrate add -r add_article_table
+
+# Run/revert migrations
 sqlx migrate run
+sqlx migrate revert
 ```
 
 Others:
 ```bash
-# Enable offline mode
+# PSQL session:
+psql -d $DATABASE_URL -P expanded=auto
+
+# Enable offline mode:
 cargo sqlx prepare
 
-# Clean up
+# Clean up:
 sqlx database drop
 ```

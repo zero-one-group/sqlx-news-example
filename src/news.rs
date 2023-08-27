@@ -1,3 +1,3 @@
 pub mod domain;
 
-pub use domain::Article;
+pub use domain::{Article, NewsApiPayload};
