@@ -10,5 +10,7 @@ CREATE TABLE IF NOT EXISTS articles (
   content TEXT NOT NULL,
   url TEXT NOT NULL,
   url_to_image TEXT NOT NULL,
-  published_at bigint NOT NULL
+  published_at bigint NOT NULL,
+  created_at bigint NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
+  updated_at bigint NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)
 );
