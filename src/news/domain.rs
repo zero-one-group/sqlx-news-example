@@ -20,7 +20,7 @@ pub struct Article {
 #[serde(rename_all = "camelCase")]
 pub struct NewsApiPayload {
     status: NewsApiResponseStatus,
-    total_results: i64,
+    pub total_results: i64,
     pub articles: Vec<NewsApiArticle>,
 }
 

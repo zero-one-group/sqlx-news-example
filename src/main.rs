@@ -1,6 +1,8 @@
+// TODO: API call to NewsAPI
+// TODO: command-line app to dump to database
 use clap::{Parser, ValueEnum};
 use sqlx::postgres::PgPoolOptions;
-use sqlx_news_example::{env, http, news};
+use sqlx_news_example::{env, http, news, types};
 use std::error::Error;
 
 #[derive(Parser, Debug)]
@@ -18,10 +20,13 @@ enum App {
     PrintArticles,
 }
 
-type Pool = sqlx::Pool<sqlx::Postgres>;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    dotenv::dotenv()?;
+    // let payload = news::fetch_last_week_articles("coal", 2).await?;
+    // println!("{:#?}", payload);
+    // TODO: fetch other pages
+
     let args = Args::parse();
     let pool = initialise_db_pool().await?;
     match args.app {
@@ -32,8 +37,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub async fn initialise_db_pool() -> Result<Pool, Box<dyn Error>> {
-    dotenv::dotenv()?;
+pub async fn initialise_db_pool() -> Result<types::Pool, Box<dyn Error>> {
     let database_url = env::load_env("DATABASE_URL")?;
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -42,31 +46,12 @@ pub async fn initialise_db_pool() -> Result<Pool, Box<dyn Error>> {
     Ok(pool)
 }
 
-pub async fn seed_articles(pool: &Pool) -> Result<(), Box<dyn Error>> {
+pub async fn seed_articles(pool: &types::Pool) -> Result<(), Box<dyn Error>> {
     let contents = std::fs::read_to_string("resources/seed_articles.json")?;
     let payload: news::NewsApiPayload = serde_json::from_str(&contents)?;
 
     for article in payload.articles {
-        let maybe_inserted = sqlx::query_as!(
-            news::Article,
-            r#"
-        INSERT INTO articles(source_id, source_name, author, title, description,
-        content, url, url_to_image, published_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (url) DO NOTHING RETURNING *;
-        "#,
-            article.source.id,
-            article.source.name,
-            article.author,
-            article.title,
-            article.description,
-            article.content,
-            article.url,
-            article.url_to_image,
-            chrono::DateTime::parse_from_rfc3339(&article.published_at)?.timestamp_millis(),
-        )
-        .fetch_optional(pool)
-        .await?;
+        let maybe_inserted = news::insert_article(pool, &article).await?;
         match maybe_inserted {
             Some(inserted) => println!("Inserted: {}", inserted.url),
             None => println!("Skipping: {}", article.url),
@@ -77,7 +62,7 @@ pub async fn seed_articles(pool: &Pool) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub async fn print_articles(pool: &Pool, limit: i64) -> Result<(), Box<dyn Error>> {
+pub async fn print_articles(pool: &types::Pool, limit: i64) -> Result<(), Box<dyn Error>> {
     let articles = sqlx::query_as!(news::Article, " SELECT * FROM articles LIMIT $1", limit)
         .fetch_all(pool)
         .await?;
