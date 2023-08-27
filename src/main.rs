@@ -1,25 +1,45 @@
+use clap::{Parser, ValueEnum};
 use sqlx::postgres::PgPoolOptions;
 use sqlx_news_example::{env, http, news};
 use std::error::Error;
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[clap(short, long)]
+    app: App,
+    #[clap(short, long, default_value_t = 3)]
+    limit: i64,
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+enum App {
+    HealthCheck,
+    SeedArticles,
+    PrintArticles,
+}
 
 type Pool = sqlx::Pool<sqlx::Postgres>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+    let pool = initialise_db_pool().await?;
+    match args.app {
+        App::HealthCheck => print_ipinfo().await?,
+        App::SeedArticles => seed_articles(&pool).await?,
+        App::PrintArticles => print_articles(&pool, args.limit).await?,
+    }
+    Ok(())
+}
+
+pub async fn initialise_db_pool() -> Result<Pool, Box<dyn Error>> {
     dotenv::dotenv()?;
     let database_url = env::load_env("DATABASE_URL")?;
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
         .await?;
-
-    seed_articles(&pool).await?;
-    print_all_articles(&pool).await?;
-
-    // TODO: use Clap to do health check, seed, print 10 articles.
-    // TODO: lazy_static init connection pool.
-
-    Ok(())
+    Ok(pool)
 }
 
 pub async fn seed_articles(pool: &Pool) -> Result<(), Box<dyn Error>> {
@@ -57,9 +77,9 @@ pub async fn seed_articles(pool: &Pool) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub async fn print_all_articles(pool: &Pool) -> Result<(), Box<dyn Error>> {
-    let articles = sqlx::query_as!(news::Article, " SELECT * FROM articles ")
-        .fetch_all(pool) // -> Vec<Country>
+pub async fn print_articles(pool: &Pool, limit: i64) -> Result<(), Box<dyn Error>> {
+    let articles = sqlx::query_as!(news::Article, " SELECT * FROM articles LIMIT $1", limit)
+        .fetch_all(pool)
         .await?;
     println!("{:#?}", articles);
     Ok(())
