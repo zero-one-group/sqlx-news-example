@@ -1,4 +1,3 @@
-// TODO: API call to NewsAPI
 // TODO: command-line app to dump to database
 use clap::{Parser, ValueEnum};
 use sqlx::postgres::PgPoolOptions;
@@ -23,9 +22,9 @@ enum App {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv::dotenv()?;
-    // let payload = news::fetch_last_week_articles("coal", 2).await?;
-    // println!("{:#?}", payload);
-    // TODO: fetch other pages
+    let articles = news::get_last_week_articles("dogecoin").await?;
+    println!("{:#?}", articles);
+    println!("Fetched {} articles!", articles.len());
 
     let args = Args::parse();
     let pool = initialise_db_pool().await?;
