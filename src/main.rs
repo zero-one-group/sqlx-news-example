@@ -51,12 +51,7 @@ pub async fn fetch_and_dump_articles(
     if let Some(query) = query {
         let articles = news::get_last_week_articles(query).await?;
         for article in articles {
-            let maybe_inserted = news::insert_article(pool, &article).await?;
-            match maybe_inserted {
-                Some(inserted) => println!("Inserted: {}", inserted.url),
-                None => println!("Skipping: {}", article.url),
-            }
-            println!("___________________________________________________");
+            news::insert_article(pool, &article).await?;
         }
         Ok(())
     } else {
