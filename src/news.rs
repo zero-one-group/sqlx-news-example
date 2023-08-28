@@ -63,7 +63,7 @@ pub async fn insert_article(
     pool: &types::Pool,
     article: &NewsApiArticle,
 ) -> Result<Option<Article>, Box<dyn Error>> {
-    let inserted = sqlx::query_as!(
+    let maybe_inserted = sqlx::query_as!(
         Article,
         r#"
         INSERT INTO articles(source_id, source_name, author, title, description,
@@ -84,5 +84,11 @@ pub async fn insert_article(
     .fetch_optional(pool)
     .await?;
 
-    Ok(inserted)
+    match maybe_inserted.as_ref() {
+        Some(inserted) => println!("Inserted: {}", inserted.url),
+        None => println!("Skipping: {}", article.url),
+    }
+    println!("______________________________________________");
+
+    Ok(maybe_inserted)
 }

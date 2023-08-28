@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Clone, Debug)]
 pub struct Article {
     pub id: sqlx::types::Uuid,
     pub source_id: Option<String>,

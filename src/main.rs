@@ -1,4 +1,3 @@
-// TODO: command-line app to dump to database
 use clap::{Parser, ValueEnum};
 use sqlx::postgres::PgPoolOptions;
 use sqlx_news_example::{env, http, news, types};
@@ -10,6 +9,8 @@ struct Args {
     app: App,
     #[clap(short, long, default_value_t = 3)]
     limit: i64,
+    #[clap(short, long)]
+    query: Option<String>,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -17,21 +18,19 @@ enum App {
     HealthCheck,
     SeedArticles,
     PrintArticles,
+    FetchAndDumpArticles,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv::dotenv()?;
-    let articles = news::get_last_week_articles("dogecoin").await?;
-    println!("{:#?}", articles);
-    println!("Fetched {} articles!", articles.len());
-
     let args = Args::parse();
     let pool = initialise_db_pool().await?;
     match args.app {
         App::HealthCheck => print_ipinfo().await?,
         App::SeedArticles => seed_articles(&pool).await?,
         App::PrintArticles => print_articles(&pool, args.limit).await?,
+        App::FetchAndDumpArticles => fetch_and_dump_articles(&pool, args.query.as_ref()).await?,
     }
     Ok(())
 }
@@ -45,19 +44,32 @@ pub async fn initialise_db_pool() -> Result<types::Pool, Box<dyn Error>> {
     Ok(pool)
 }
 
+pub async fn fetch_and_dump_articles(
+    pool: &types::Pool,
+    query: Option<&String>,
+) -> Result<(), Box<dyn Error>> {
+    if let Some(query) = query {
+        let articles = news::get_last_week_articles(query).await?;
+        for article in articles {
+            let maybe_inserted = news::insert_article(pool, &article).await?;
+            match maybe_inserted {
+                Some(inserted) => println!("Inserted: {}", inserted.url),
+                None => println!("Skipping: {}", article.url),
+            }
+            println!("___________________________________________________");
+        }
+        Ok(())
+    } else {
+        Err("Must specify query for article fetches.".into())
+    }
+}
+
 pub async fn seed_articles(pool: &types::Pool) -> Result<(), Box<dyn Error>> {
     let contents = std::fs::read_to_string("resources/seed_articles.json")?;
     let payload: news::NewsApiPayload = serde_json::from_str(&contents)?;
-
     for article in payload.articles {
-        let maybe_inserted = news::insert_article(pool, &article).await?;
-        match maybe_inserted {
-            Some(inserted) => println!("Inserted: {}", inserted.url),
-            None => println!("Skipping: {}", article.url),
-        }
-        println!("___________________________________________________");
+        news::insert_article(pool, &article).await?;
     }
-
     Ok(())
 }
 
