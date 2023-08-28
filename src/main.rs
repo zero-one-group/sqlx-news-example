@@ -69,9 +69,13 @@ pub async fn seed_articles(pool: &types::Pool) -> Result<(), Box<dyn Error>> {
 }
 
 pub async fn print_articles(pool: &types::Pool, limit: i64) -> Result<(), Box<dyn Error>> {
-    let articles = sqlx::query_as!(news::Article, " SELECT * FROM articles LIMIT $1", limit)
-        .fetch_all(pool)
-        .await?;
+    let articles = sqlx::query_as!(
+        news::Article,
+        "SELECT * FROM articles ORDER BY RANDOM() LIMIT $1",
+        limit
+    )
+    .fetch_all(pool)
+    .await?;
     println!("{:#?}", articles);
     Ok(())
 }
